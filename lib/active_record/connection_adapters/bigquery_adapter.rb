@@ -82,11 +82,20 @@ module ActiveRecord
     end
 
     private
+
+    def remove_quotes(value)
+      if value.kind_of?(String) && value.length >= 2 && value.start_with?("'") && value.end_with?("'")
+        value[1..-2]
+      else
+        value
+      end
+    end
+
     # Creates a record with values matching those of the instance attributes
     # and returns its id.
     def _create_record(attribute_names = @attributes.keys)
       record_timestamps_hardcoded
-      attributes_values = self.changes.values.map(&:last).map!{|v| self.class.connection.quote v }
+      attributes_values = self.changes.values.map(&:last).map!{|v| remove_quotes self.class.connection.quote(v) }
             
       row_hash = Hash[ [ self.changes.keys, attributes_values ].transpose ]
       new_id =  SecureRandom.hex
@@ -565,7 +574,7 @@ module ActiveRecord
         {
           :primary_key => default_primary_key_type,
           :string      => { :name => "STRING", :default=> nil },
-          #:text        => { :name => "text" },
+          :text        => { :name => "STRING" },
           :integer     => { :name => "INTEGER", :default=> nil },
           :float       => { :name => "FLOAT", :default=> 0.0 },
           #:decimal     => { :name => "decimal" },
@@ -609,20 +618,12 @@ module ActiveRecord
 
       # QUOTING ==================================================
 
-      def remove_quotes(value)
-        if value.kind_of?(String) && value.length >= 2 && value.start_with?("'") && value.end_with?("'")
-          value[1..-2]
-        else
-          value
-        end
-      end
-
       def quote(value, column = nil)
         if value.kind_of?(String) && column && column.type == :binary && column.class.respond_to?(:string_to_binary)
           s = column.class.string_to_binary(value).unpack("H*")[0]
           "x'#{s}'"
         else
-          remove_quotes(super)
+          super
         end
       end
 
@@ -646,7 +647,8 @@ module ActiveRecord
       # Quote date/time values for use in SQL input. Includes microseconds
       # if the value is a Time responding to usec.
       def quoted_date(value) #:nodoc:
-        value = value.to_time if not value.kind_of?(Time) and value.respond_to?(:to_time)
+        value = value.to_time if value.respond_to?(:to_time)
+
         if value.respond_to?(:usec)
           "#{super}.#{sprintf("%06d", value.usec)}"
         else
