@@ -38,11 +38,11 @@ module ActiveRecord
       
       #In case we are using a bigquery adapter as standard config in database.yml 
       #All models are BigQuery enabled
-      ActiveRecord::Base.send :include, ActiveRecord::BigQueryPersistence
-      ActiveRecord::SchemaMigration.send :include, ActiveRecord::BigQuerySchemaMigration
-      ActiveRecord::Migrator.send :include, ActiveRecord::BigQueryMigrator
-      ActiveRecord::Relation.send :include, ActiveRecord::BigQueryRelation
-      ActiveRecord::Base.send :include, ActiveRecord::BigQuerying
+      # ActiveRecord::Base.send :include, ActiveRecord::BigQueryPersistence
+      # ActiveRecord::SchemaMigration.send :include, ActiveRecord::BigQuerySchemaMigration
+      # ActiveRecord::Migrator.send :include, ActiveRecord::BigQueryMigrator
+      # ActiveRecord::Relation.send :include, ActiveRecord::BigQueryRelation
+      # ActiveRecord::Base.send :include, ActiveRecord::BigQuerying
       #db.busy_timeout(ConnectionAdapters::SQLite3Adapter.type_cast_config_to_integer(config[:timeout])) if config[:timeout]
       ConnectionAdapters::BigqueryAdapter.new(db, logger, config)
     rescue  => e
@@ -62,6 +62,19 @@ module ActiveRecord
       def establish_bq_connection(path)
         self.send :include, ActiveRecord::BigQueryPersistence
         establish_connection path
+      end
+
+      def include_again(mod)
+        mod.instance_methods.each { |m|
+          self.send(:define_method, m) { |*args|
+            mod.instance_method(m).bind(self).call(*args)
+          }
+        }
+      end
+
+      def remove_bq_overrides
+        #self.send :include, ActiveRecord::Persistence
+        self.include_again(ActiveRecord::Persistence)
       end
     end
   end
