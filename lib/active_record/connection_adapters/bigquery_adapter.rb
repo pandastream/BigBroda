@@ -108,7 +108,7 @@ module ActiveRecord
     # and returns its id.
     def _create_record(attribute_names = @attributes.keys)
       record_timestamps_hardcoded
-      attributes_values = self.changes.values.map(&:last).map!{|v| remove_quotes self.class.connection.quote(v) }
+      attributes_values = self.changes.values.map(&:last).map!{|v| self.class.connection.remove_quotes self.class.connection.quote(v) }
             
       row_hash = Hash[ [ self.changes.keys, attributes_values ].transpose ]
       new_id =  SecureRandom.hex
@@ -368,6 +368,30 @@ module ActiveRecord
           fields)
       end
 
+      def bigquery_load_objects(objects)
+        rows = []
+        objects.each { |obj|
+          obj.instance_eval { record_timestamps_hardcoded }
+
+          row_hash = {}
+          obj.attributes.each_pair { |name, value|
+            row_hash[name] = connection.remove_quotes(connection.quote(value)) unless value == nil
+          }
+
+          new_id = SecureRandom.hex
+          rows << {
+            #"insertId" => Time.now.to_i.to_s,
+            "json" => row_hash.merge("id" => new_id)
+          }
+        }
+
+        cfg = connection_config
+        GoogleBigquery::TableData.create(cfg[:project],
+          cfg[:database],
+          table_name,
+          { "rows" => rows })
+      end
+
       def bigquery_import()
       end
     end
@@ -393,7 +417,7 @@ module ActiveRecord
         def string_to_time(string)
           return string unless string.is_a?(String)
           return nil if string.empty?
-          fast_string_to_time(string) || fallback_string_to_time(string) || Time.at(string.to_f).send(Base.default_timezone)
+          Time.at(string.to_f).utc || fast_string_to_time(string) || fallback_string_to_time(string)
         end
       end
     end
@@ -630,6 +654,14 @@ module ActiveRecord
       end
 
       # QUOTING ==================================================
+
+      def remove_quotes(value)
+        if value.kind_of?(String) && value.length >= 2 && value.start_with?("'") && value.end_with?("'")
+          value[1..-2]
+        else
+          value
+        end
+      end
 
       def quote(value, column = nil)
         if value.kind_of?(String) && column && column.type == :binary && column.class.respond_to?(:string_to_binary)
