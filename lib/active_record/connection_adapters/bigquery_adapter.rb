@@ -368,27 +368,27 @@ module ActiveRecord
           fields)
       end
 
-      def bigquery_load_objects(objects)
+      def bigquery_load_objects(objects, table=nil)
         rows = []
-        objects.each { |obj|
+        objects.each do |obj|
           obj.instance_eval { record_timestamps_hardcoded }
 
           row_hash = {}
-          obj.attributes.each_pair { |name, value|
+          obj.attributes.each_pair do |name, value|
             row_hash[name] = connection.remove_quotes(connection.quote(value)) unless value == nil
-          }
+          end
 
           new_id = SecureRandom.hex
           rows << {
             #"insertId" => Time.now.to_i.to_s,
             "json" => row_hash.merge("id" => new_id)
           }
-        }
+        end
 
         cfg = connection_config
         GoogleBigquery::TableData.create(cfg[:project],
           cfg[:database],
-          table_name,
+          table || table_name,
           { "rows" => rows })
       end
 
