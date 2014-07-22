@@ -806,6 +806,7 @@ module ActiveRecord
 
         begin
           data_chunk = GoogleBigquery::Table.list(@config[:project], @config[:database], page_token)
+          break if data_chunk["tables"].blank?
           page_token = data_chunk["nextPageToken"]
 
           table_names_chunk = data_chunk["tables"].map{|o| o["tableReference"]["tableId"]}
