@@ -4,7 +4,6 @@ module GoogleBigquery
   class Railtie < ::Rails::Railtie
     config.before_configuration do
       require "#{Rails.root}/config/initializers/bigquery"
-      GoogleBigquery::Auth.new.authorize
     #  if config.action_view.javascript_expansions
     #    config.action_view.javascript_expansions[:high_charts] |= %w(highcharts exporting)
     #  end
