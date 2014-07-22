@@ -8,11 +8,15 @@ module GoogleBigquery
       super
     end
 
-    def self.list(project_id, dataset_id)
-      parse_response GoogleBigquery::Auth.client.execute( 
-        GoogleBigquery::Auth.api.tables.list,
-        projectId: project_id, datasetId: dataset_id
+    def self.list(project_id, dataset_id, page_token=nil)
+      parameters = {"projectId"=> project_id, "datasetId"=> dataset_id,
+                    "maxResults"=> 1000}
+      parameters["pageToken"] = page_token if page_token
+      resp = parse_response GoogleBigquery::Auth.client.execute(
+        :api_method => GoogleBigquery::Auth.api.tables.list,
+        :parameters => parameters
       )
+      resp
     end
 
     def self.get(project_id, dataset_id, table_id)

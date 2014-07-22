@@ -114,7 +114,7 @@ module ActiveRecord
       new_id =  SecureRandom.hex
       @rows =   {"rows"=> [{
                             "insertId"=> Time.now.to_i.to_s,
-                            "json"=> row_hash.merge("id"=> new_id)
+                            "json"=> {"id" => new_id}.merge(row_hash)
                           }]
                 }
       conn_cfg = self.class.connection_config
@@ -125,7 +125,8 @@ module ActiveRecord
 
       #raise result["error"]["errors"].map{|o| "[#{o['domain']}]: #{o['reason']} #{o['message']}" }.join(", ") if result["error"].present?
       #here we output the IN MEMORY id , because of the BQ latency
-      self.id = new_id #||= new_id if self.class.primary_key
+      #self.id = new_id #||= new_id if self.class.primary_key
+      self.id ||= new_id
 
       @new_record = false
       id
@@ -800,10 +801,19 @@ module ActiveRecord
       # SCHEMA STATEMENTS ========================================
 
       def tables(name = nil, table_name = nil) #:nodoc:
-        table = GoogleBigquery::Table.list(@config[:project], @config[:database])
-        return [] if table["tables"].blank?
-        table_names = table["tables"].map{|o| o["tableReference"]["tableId"]}
-        table_names = table_names.select{|o| o == table_name } if table_name
+        table_names = []
+        page_token = nil
+
+        begin
+          data_chunk = GoogleBigquery::Table.list(@config[:project], @config[:database], page_token)
+          page_token = data_chunk["nextPageToken"]
+
+          table_names_chunk = data_chunk["tables"].map{|o| o["tableReference"]["tableId"]}
+          table_names_chunk = table_names_chunk.select{|o| o == table_name } if table_name
+
+          table_names.concat(table_names_chunk)
+        end while page_token
+
         table_names
       end
 
