@@ -379,10 +379,12 @@ module ActiveRecord
             row_hash[name] = connection.remove_quotes(connection.quote(value)) unless value == nil
           end
 
-          new_id = SecureRandom.hex
+          id = row_hash.key?("id") ? row_hash["id"] : SecureRandom.hex
+          row_hash["id"] = id
+
           rows << {
-            #"insertId" => Time.now.to_i.to_s,
-            "json" => row_hash.merge("id" => new_id)
+            "insertId" => id,
+            "json"=> row_hash
           }
         end
 
